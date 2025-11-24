@@ -1,0 +1,211 @@
+def predict_from_features(features: Dict[str, int]) -> Dict[str, Any]:
+    feature_vector = np.array(
+        [
+            [
+                features["single_q"],
+                features["double_q"],
+                features["dashes"],
+                features["braces"],
+                features["spaces"],
+                features["badwords"],
+            ]
+        ]
+    )
+
+    label = MODEL.predict(feature_vector)[0]   # 0 = malicious, 1 = normal
+
+    malicious_prob = None
+
+    if hasattr(MODEL, "predict_proba"):
+        proba = MODEL.predict_proba(feature_vector)[0]
+        malicious_prob = float(proba[0])   # class 0
+
+    # -------------------------------
+    # Apply your threshold logic
+    # -------------------------------
+    blocked = malicious_prob > THRESHOLD
+
+    label_str = "malicious" if blocked else "normal"
+
+    reason = None
+    if blocked:
+        reason = f"Intrusion detected — malicious_prob={malicious_prob:.4f} > THRESHOLD({THRESHOLD})"
+
+    return {
+        "label": label_str,
+        "probabilities": malicious_prob,
+        "blocked": blocked,
+        "reason": reason,
+    }
+
+
+
+# app = FastAPI(title="AI WAF Backend", version="1.0.0")
+
+
+# @app.post("/predict", response_model=PredictResponse)
+# async def predict(payload: PredictPayload) -> PredictResponse:
+#     try:
+#         features = extract_features(payload.path, payload.body)
+#         prediction = predict_from_features(features)
+#         return PredictResponse(features=features, **prediction)
+#     except Exception as exc:  # pragma: no cover
+#         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# @app.get("/health")
+# async def health() -> Dict[str, str]:
+#     return {"status": "ok"}
+
+class PredictPayload(BaseModel):
+    method: str = "GET"
+    path: str = ""
+    body: Optional[str] = ""
+
+class PredictResponse(BaseModel):
+    label: str
+    probabilities: Optional[list[float]]
+    blocked: bool
+    reason: Optional[str]
+    features: Dict[str, int]
+
+
+-------
+
+proxy 
+
+import socketserver
+import http.server
+import urllib.request
+import urllib.parse
+import joblib
+import numpy as np
+import json
+import threading
+
+MODEL_PATH = "model.pkl"
+THRESHOLD = 0.25
+
+MODEL = joblib.load(MODEL_PATH)
+
+BAD_WORDS = [
+    "sleep", "drop", "uid", "select", "waitfor", "delay",
+    "system", "union", "order by", "group by",
+    "insert", "update", "delete", "benchmark",
+    "and 1=1", "or 1=1", "--", "#"
+]
+
+
+def extract_features(path: str, body: str):
+    decoded_path = urllib.parse.unquote(path or "")
+    decoded_body = urllib.parse.unquote(body or "")
+    combined = f"{decoded_path} {decoded_body}"
+
+    features = {
+        "single_q": combined.count("'"),
+        "double_q": combined.count('"'),
+        "dashes": combined.count("--"),
+        "braces": combined.count("("),
+        "spaces": combined.count(" "),
+        "badwords": sum(combined.lower().count(word) for word in BAD_WORDS)
+    }
+    return features
+
+
+def waf_predict(features):
+    vec = np.array([[
+        features["single_q"],
+        features["double_q"],
+        features["dashes"],
+        features["braces"],
+        features["spaces"],
+        features["badwords"],
+    ]])
+
+    malicious_prob = MODEL.predict_proba(vec)[:, 0][0]
+    blocked = malicious_prob > THRESHOLD
+    return blocked, malicious_prob
+
+
+class AIProxy(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.handle_proxy("GET")
+
+    def do_POST(self):
+        self.handle_proxy("POST")
+
+    def handle_proxy(self, method):
+        url = self.path
+
+        content_len = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_len).decode("utf-8") if content_len else ""
+
+        features = extract_features(url, body)
+        blocked, mp = waf_predict(features)
+
+        print("\n--- Incoming Request ---")
+        print("URL:", url)
+        print("Body:", body)
+        print("Malicious Probability:", mp)
+        print("Blocked:", blocked)
+
+        if blocked:
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "blocked",
+                "reason": f"malicious_prob={mp}"
+            }).encode())
+            return
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=body.encode() if body else None,
+                method=method
+            )
+            resp = urllib.request.urlopen(req)
+            data = resp.read()
+
+            self.send_response(resp.status)
+            for k, v in resp.headers.items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(data)
+
+        except Exception as e:
+            self.send_error(500, f"Proxy error: {e}")
+
+
+# GLOBAL PROXY INSTANCE
+proxy_server = None
+proxy_thread = None
+
+
+def start_proxy():
+    global proxy_server, proxy_thread
+
+    if proxy_server:
+        return False  # already running
+
+    def run():
+        global proxy_server
+        with socketserver.ThreadingTCPServer(("0.0.0.0", 8888), AIProxy) as httpd:
+            proxy_server = httpd
+            print("🚀 Proxy started on port 8888")
+            httpd.serve_forever()
+
+    proxy_thread = threading.Thread(target=run, daemon=True)
+    proxy_thread.start()
+    return True
+
+
+def stop_proxy():
+    global proxy_server
+    if proxy_server:
+        proxy_server.shutdown()
+        proxy_server = None
+        print("🛑 Proxy stopped")
+        return True
+    return False
