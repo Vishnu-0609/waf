@@ -1,4 +1,7 @@
-# Model Training, Frontend (Vite), and Backend (FastAPI) Setup
+# TA-2 Assigment :- AI POWERED WAF[WEB APPLICATION FIREWALL]
+# NAME:- VISHNU KETANKUMAR MANDLESARA
+# ENROLLMENT NO:- 250103002026
+# Course Name:- MSc Cyber Security
 
 This README provides complete documentation for your **model training workflow**, **feature extraction system**, **Vite frontend setup**, and **FastAPI backend setup with Uvicorn**.
 
