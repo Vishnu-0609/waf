@@ -7,8 +7,8 @@ import json
 import re
 import sys
 
-log_path = 'good.log'
-output_path = 'good.csv'
+log_path = 'burpsuite_sample_log.log'
+output_path = 'train_data.csv'
 
 badwords = [
     'sleep','drop','uid','select','waitfor','delay','system',

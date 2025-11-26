@@ -1,29 +1,42 @@
-# TA-2 Assigment :- AI POWERED WAF[WEB APPLICATION FIREWALL]
+# TA-2 Assigment :- AI POWERED WAF [WEB APPLICATION FIREWALL]
 NAME:- VISHNU KETANKUMAR MANDLESARA <br>
-ENROLLMENT NO:- 250103002026
-Course Name:- MSc Cyber Security
+ENROLLMENT NO:- 250103002026 <br>
+Course Name:- MSc Cyber Security <br>
 
-This README provides complete documentation for your **model training workflow**, **feature extraction system**, **Vite frontend setup**, and **FastAPI backend setup with Uvicorn**.
+This README provides complete documentation for **model training workflow**, **feature extraction system**, **Vite frontend setup**, and **FastAPI backend setup with Uvicorn**.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-project/
+WAF_PROJECT/
 │
-├── backend/
-│   ├── feature_extractor.py
-│   ├── main.py
+├── model_training/
+│   ├── burpsuite_sample_log.log
+│   ├── logparser.py
+│   ├── randomforest.ipynb
+│   ├── rf_model.pkl
+│   ├── train_data.csv
+│   ├── test_data.csv
+│   ├── test_result.csv
+│   └── requirements.txt
+|
+├── python_backend/
+│   ├── proxy_server.py
+│   ├── app.py
 │   ├── model.pkl
 │   └── requirements.txt
 │
 ├── frontend/
 │   ├── index.html
+│   ├── .env
 │   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
 │   │   ├── App.jsx
 │   │   ├── main.jsx
-│   │   └── components/
+│   │   └── index.css
 │   └── vite.config.js
 │
 └── README.md
@@ -31,11 +44,10 @@ project/
 
 ---
 
-# 🚀 1. Feature Extractor (model_training)
+# 🚀 1. Feature Extractor 
 
 The **feature_extractor.py** file contains a function that converts an HTTP request into numeric features that match your ML model’s training order.
 
-### 📌 File: `feature_extractor.py`
 
 ```python
 import urllib.parse
@@ -74,9 +86,9 @@ def ExtractFeatures(method: str, path: str, body: str = "") -> pd.DataFrame:
 
 ### 🧠 Steps
 
-1. **Collect dataset**
+1. **Collect dataset from BurpSuite You can check raw data in model_training/burpsuite_sample_log.log**
 2. **Extract features** using `ExtractFeatures()`
-3. **Train ML model** (e.g., RandomForest, XGBoost)
+3. **Train ML model** (e.g., RandomForest [Good Accuracy], XGBoost, Sklearn)
 4. Save the model:
 
    ```python
@@ -94,17 +106,24 @@ def ExtractFeatures(method: str, path: str, body: str = "") -> pd.DataFrame:
 
 ## 📌 Install requirements
 
-Create `backend/requirements.txt`:
+Create `python_backend/requirements.txt`:
 
 ```
-fastapi
-uvicorn
-pandas
-scikit-learn
-joblib
+fastapi==0.115.0
+uvicorn[standard]==0.30.3
+numpy==1.26.4
+joblib==1.4.2
+pandas==2.2.3
+scikit-learn==1.4.2
+httpx==0.27.2
+
 ```
 
 Install dependencies:
+
+```bash
+cd python_backend
+```
 
 ```bash
 pip install -r requirements.txt
@@ -141,7 +160,7 @@ async def predict(request: Request):
 ## ▶️ Run the server
 
 ```bash
-uvicorn main:app --reload
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Server starts at:
@@ -157,7 +176,6 @@ http://127.0.0.1:8000
 ### 📌 Install Vite project
 
 ```bash
-npm create vite@latest frontend --template react
 cd frontend
 npm install
 ```
@@ -169,32 +187,20 @@ npm install
 In `src/App.jsx`:
 
 ```jsx
-import { useState } from "react";
-
 function App() {
-  const [result, setResult] = useState(null);
-
-  const scan = async () => {
-    const res = await fetch("http://127.0.0.1:8000/predict", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "GET",
-        path: "/api/test?name='admin'",
-        body: ""
-      })
-    });
-
-    const data = await res.json();
-    setResult(data.prediction);
-  };
-
   return (
-    <div>
-      <h1>Scanner</h1>
-      <button onClick={scan}>Scan</button>
-      {result !== null && <p>Prediction: {result}</p>}
-    </div>
+    <Router>
+      <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+        <Header />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/intercepter" element={<Intercepter />} />
+            <Route path="/request-analyzer" element={<RequestAnalyzer />} />
+          </Routes>
+        </div>
+      </div>
+    </Router>
   );
 }
 
@@ -240,8 +246,3 @@ app.add_middleware(
 * You can extend this for XSS, SQLi, malware detection, or anomaly detection.
 
 ---
-
-If you want, I can also create:
-✅ API documentation
-✅ Swagger examples
-✅ Dockerfile for backend + frontend

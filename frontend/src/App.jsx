@@ -15,7 +15,6 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/intercepter" element={<Intercepter />} />
             <Route path="/request-analyzer" element={<RequestAnalyzer />} />
-            {/* <Route path="/check-phish" element={<CheckPhish/>} /> */}
           </Routes>
         </div>
       </div>
