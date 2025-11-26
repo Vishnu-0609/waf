@@ -86,7 +86,7 @@ def ExtractFeatures(method: str, path: str, body: str = "") -> pd.DataFrame:
 
 ### 🧠 Steps
 
-1. **Collect dataset from BurpSuite You can check raw data in model_training/burpsuite_sample_log.log**
+1. **Collect dataset from BurpSuite You can check raw data in `model_training/burpsuite_sample_log.log`**
 2. **Extract features** using `ExtractFeatures()`
 3. **Train ML model** (e.g., RandomForest [Good Accuracy], XGBoost, Sklearn)
 4. Save the model:
@@ -131,7 +131,7 @@ pip install -r requirements.txt
 
 ---
 
-## ▶️ FastAPI main file (`main.py`)
+## ▶️ FastAPI main file (`app.py`)
 
 ```python
 from fastapi import FastAPI, Request
